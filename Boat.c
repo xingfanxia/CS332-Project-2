@@ -61,6 +61,7 @@ int main(int argc, char *argv[]) {
 	      //pthread_join(childrenP[c], NULL);
 		}
 
+		sem_wait(finish_sem);
 		for( int a = 1; a <= adultsPthread; a = a + 1 ){
 	      // pthread_t adultsP[a];
 	      // pthread_create(&adultsP[a], NULL, adult, NULL);
@@ -76,7 +77,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	
-	sem_wait(finish_sem);
+	
 	closeSync();
 	return 0;
 }
@@ -206,9 +207,9 @@ void* adult (void* args) {
 	}
 	//otherwise adults can go now
 	adult_0--;
-	printf("One Adult is now rowing from Oahu to Molokai\n");
 	boatAt0 = 0;
 	pthread_mutex_unlock(&lock0);
+	printf("One Adult is now rowing from Oahu to Molokai\n");
 	pthread_mutex_lock(&lock1);
 	adult_1++;
 	printf("One Adult has got out of the boat and arrived at Molokai!!! Oh Yeah\n");
