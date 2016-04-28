@@ -52,26 +52,26 @@ int main(int argc, char *argv[]) {
         for( int a = 1; a <= adultsPthread; a = a + 1 ){
 	      pthread_t adultsP[a];
 	      pthread_create(&adultsP[a], NULL, adult, NULL);
-	      //pthread_join(adultsP[a], NUll);
+	      //pthread_join(adultsP[a], NULL);
 		}
 
 		for( int c = 1; c <= childrenPthread; c = c + 1 ){
 	      pthread_t childrenP[c];
 	      pthread_create(&childrenP[c], NULL, children, NULL);
-	      //pthread_join(childrenP[c], NUll);
+	      //pthread_join(childrenP[c], NULL);
 		}
 
-		for( int a = 1; a <= adultsPthread; a = a + 1 ){
-	      // pthread_t adultsP[a];
-	      // pthread_create(&adultsP[a], NULL, adult, NULL);
-	      pthread_join(adultsP[a], NULL);
-		}
+		// for( int a = 1; a <= adultsPthread; a = a + 1 ){
+	 //      // pthread_t adultsP[a];
+	 //      // pthread_create(&adultsP[a], NULL, adult, NULL);
+	 //      pthread_join(adultsP[a], NULL);
+		// }
 
-		for( int c = 1; c <= childrenPthread; c = c + 1 ){
-	      // pthread_t childrenP[c];
-	      // pthread_create(&childrenP[c], NULL, children, NULL);
-	      pthread_join(childrenP[c], NULL);
-		}
+		// for( int c = 1; c <= childrenPthread; c = c + 1 ){
+	 //      // pthread_t childrenP[c];
+	 //      // pthread_create(&childrenP[c], NULL, children, NULL);
+	 //      pthread_join(childrenP[c], NULL);
+		// }
 
 	}
 
