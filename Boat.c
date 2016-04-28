@@ -26,7 +26,8 @@ pthread_cond_t cWaitToBow0; //wait for a second child to go with to go across th
 
 //sem for main
 sem_t* finish_sem; //sem to signal if boat arrived
-
+sem_t* startThread_sem;
+sem_t* waitThread_sem;
 
 void* adult(void*);
 void* children(void*);
@@ -61,16 +62,31 @@ int main(int argc, char *argv[]) {
 	      //pthread_join(childrenP[c], NULL);
 		}
 
-		sem_wait(finish_sem);
+		
 		for( int a = 1; a <= adultsPthread; a = a + 1 ){
-	      // pthread_t adultsP[a];
-	      // pthread_create(&adultsP[a], NULL, adult, NULL);
+	      sem_wait(waitThread_sem);
+		}
+
+		for( int c = 1; c <= childrenPthread; c = c + 1 ){
+	      sem_wait(waitThread_sem);
+		}
+
+		
+		for( int a = 1; a <= adultsPthread; a = a + 1 ){
+	      sem_post(startThread_sem);
+		}
+
+		for( int c = 1; c <= childrenPthread; c = c + 1 ){
+	      sem_post(startThread_sem);
+		}
+		sem_wait(finish_sem);
+
+		for( int a = 1; a <= adultsPthread; a = a + 1 ){
+	      
 	      pthread_join(adultsP[a], NULL);
 		}
 
 		for( int c = 1; c <= childrenPthread; c = c + 1 ){
-	      // pthread_t childrenP[c];
-	      // pthread_create(&childrenP[c], NULL, children, NULL);
 	      pthread_join(childrenP[c], NULL);
 		}
 
@@ -93,19 +109,51 @@ void initSync() {
 
 	finish_sem = sem_open("finishSem", O_CREAT|O_EXCL, 0466, 0);
 
+	startThread_sem = sem_open("startSem", O_CREAT|O_EXCL, 0466, 0);
+
+	waitThread_sem = sem_open("waitSem", O_CREAT|O_EXCL, 0466, 0);
+
 	while (finish_sem==SEM_FAILED) {
-    if (errno == EEXIST) {
-      printf("semaphore finishSem already exists, unlinking and reopening\n");
-      fflush(stdout);
-      sem_unlink("finishSem");
-      finish_sem = sem_open("finishSem", O_CREAT|O_EXCL, 0466, 0);
-    }
-    else {
-      printf("semaphore could not be opened, error # %d\n", errno);
-      fflush(stdout);
-      exit(1);
-    }
-  }
+	    if (errno == EEXIST) {
+	      printf("semaphore finishSem already exists, unlinking and reopening\n");
+	      fflush(stdout);
+	      sem_unlink("finishSem");
+	      finish_sem = sem_open("finishSem", O_CREAT|O_EXCL, 0466, 0);
+	    }
+	    else {
+	      printf("semaphore could not be opened, error # %d\n", errno);
+	      fflush(stdout);
+	      exit(1);
+	    }
+	}
+
+    while (startThread_sem==SEM_FAILED) {
+	    if (errno == EEXIST) {
+	      printf("semaphore startSem already exists, unlinking and reopening\n");
+	      fflush(stdout);
+	      sem_unlink("startSem");
+	      startThread_sem = sem_open("startSem", O_CREAT|O_EXCL, 0466, 0);
+	    }
+	    else {
+	      printf("semaphore could not be opened, error # %d\n", errno);
+	      fflush(stdout);
+	      exit(1);
+	    }
+	}
+
+    while (waitThread_sem==SEM_FAILED) {
+	    if (errno == EEXIST) {
+	      printf("semaphore waitSem already exists, unlinking and reopening\n");
+	      fflush(stdout);
+	      sem_unlink("waitSem");
+	      waitThread_sem = sem_open("waitSem", O_CREAT|O_EXCL, 0466, 0);
+	    }
+	    else {
+	      printf("semaphore could not be opened, error # %d\n", errno);
+	      fflush(stdout);
+	      exit(1);
+	    }
+	}
 }
 
 void closeSync() {
@@ -118,11 +166,21 @@ void closeSync() {
 
   	sem_close(finish_sem);
  	sem_unlink("finishSem");
+
+ 	sem_close(waitThread_sem);
+ 	sem_unlink("waitSem");
+
+ 	sem_close(startThread_sem);
+ 	sem_unlink("startSem");
 }
 
 void* children (void* args) {
 	printf("One Child has showed up at Oahu\n");
+	fflush(stdout);
 	child_0++;
+
+	sem_post(waitThread_sem);
+	sem_wait(startThread_sem);
 	while (child_0 + adult_0 > 1) {
 		//while there are people still on the island
 		pthread_mutex_lock(&lock0);
@@ -200,6 +258,8 @@ void* adult (void* args) {
 	printf("One Adult has showed up at Oahu\n");
 	adult_0++;
 	fflush(stdout);
+	sem_post(waitThread_sem);
+	sem_wait(startThread_sem);
 	pthread_mutex_lock(&lock0);
 	while(child_0 >1 || boatAt0 == 0) {
 		//if there is more than one child, then the children should go first, so go to sleep
