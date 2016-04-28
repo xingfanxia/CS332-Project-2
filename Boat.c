@@ -9,23 +9,24 @@ int child_0 = 0; //Num of children at Oahu
 int child_1 = 0; //Num of children at Molokai
 int adult_0 = 0; //Num of adult at Oahu
 int adult_1 = 0; //Num of adult at Molokai
-int total_0 = 0; //Num of total people at Oahu
-int total_1 = 0; //Num of total people at Molokai
-int boat = 0; //Boat location, if 0 -> it's at Oahu; if 1 -> it's at Molokai
-int child_boat = 0; //num of children on boat
-int adult_boat = 0; //num of adult on boat
+int childOffBoat = 0; //Child got off boat
+int child_Waitboat = 0; //num of children waiting for boat
+int boatAt0 = 1;
 //mutex lock and cond vars
-pthread_mutex_t lock; //lock for critical section
-pthread_cond_t waitAt0; //cond var for wait at Oahu
-pthread_cond_t waitAt1; //cond var for wait at Molokai
-pthread_cond_t boatFull; //cond var for if ship is full
-pthread_cond_t boatArrive; //cond var for if ship arrived
-pthread_cond_t adultGo;
+//lock one island so no concurrent access is happening
+pthread_mutex_t lock0; //lock for critical section, lock Oahu
+pthread_mutex_t lock1; //lock for critical section, lock Molokai
+
+pthread_cond_t adult0; //cond var for adults; if 2+ children at Oahu then wait
+
+//cond var for children
+pthread_cond_t cWaitAt1; //wait at Molokai if not the child boating back
+pthread_cond_t cWaitAt0; //wait at A if there are 2+ children to go across the river
+pthread_cond_t cWaitToBow0; //wait for a second child to go with to go across the river
 
 //sem for main
-sem_t* arrive_sem; //sem to signal if boat arrived
-sem_t* ready_sem; //sem to signal if boat is ready
-sem_t* depart_sem; //sem to signal if boat has departed
+sem_t* finish_sem; //sem to signal if boat arrived
+
 
 void* adult(void*);
 void* children(void*);
@@ -74,122 +75,143 @@ int main(int argc, char *argv[]) {
 
 	}
 
+	
+	sem_wait(finish_sem);
 	closeSync();
 	return 0;
 }
 
 void initSync() {
-	pthread_mutex_init(&lock, NULL);
-	pthread_cond_init(&waitAt0, NULL);
-	pthread_cond_init(&waitAt1, NULL);
-	pthread_cond_init(&boatFull, NULL);
-	pthread_cond_init(&boatArrive, NULL);
-	pthread_cond_init(&adultGo, NULL);
+	pthread_mutex_init(&lock0, NULL);
+	pthread_mutex_init(&lock1, NULL);
+	pthread_cond_init(&adult0, NULL);
+	pthread_cond_init(&cWaitAt0, NULL);
+	pthread_cond_init(&cWaitAt1, NULL);
+	pthread_cond_init(&cWaitToBow0, NULL);
+
+
+	finish_sem = sem_open("finishSem", O_CREAT|O_EXCL, 0466, 0);
+
+	while (finish_sem==SEM_FAILED) {
+    if (errno == EEXIST) {
+      printf("semaphore finishSem already exists, unlinking and reopening\n");
+      fflush(stdout);
+      sem_unlink("finishSem");
+      finish_sem = sem_open("finishSem", O_CREAT|O_EXCL, 0466, 0);
+    }
+    else {
+      printf("semaphore could not be opened, error # %d\n", errno);
+      fflush(stdout);
+      exit(1);
+    }
+  }
 }
 
 void closeSync() {
-	pthread_mutex_destroy(&lock);
-  	pthread_cond_destroy(&waitAt1);
-  	pthread_cond_destroy(&waitAt0);
-  	pthread_cond_destroy(&boatFull);
-  	pthread_cond_destroy(&boatArrive);
+	pthread_mutex_destroy(&lock0);
+	pthread_mutex_destroy(&lock1);
+	pthread_cond_destroy(&adult0);
+	pthread_cond_destroy(&cWaitAt0);
+	pthread_cond_destroy(&cWaitAt1);
+	pthread_cond_destroy(&cWaitToBow0);
+
+  	sem_close(finish_sem);
+ 	sem_unlink("finishSem");
 }
 
 void* children (void* args) {
-	printf("One Child has showed up at Oahu \n");
-	fflush(stdout);
-	child_0 ++;
-	total_0 ++;
-	int childLoc = 0; //intial location of the child
-	pthread_mutex_lock(&lock);
+	printf("One Child has showed up at Oahu\n");
+	child_0++;
+	while (child_0 + adult_0 > 1) {
+		//while there are people still on the island
+		pthread_mutex_lock(&lock0);
 
-	while(1) {
-		if (childLoc == 0) {	
-			if (child_0 != 1) { //if there is more than 1 child
-				printf("Child getting into boat\n");
-				fflush(stdout);
-				printf("Child getting into boat\n");
-				fflush(stdout);
-				child_0 = child_0 - 2;
-				total_0 = total_0 - 2;
-				child_boat =child_boat +2;
-				printf("Child start to rowing boat from Oahu to Molokai\n");
-				fflush(stdout);
-				printf("Child getting off boat and arrive on Molokai\n");
-				fflush(stdout);
-				child_boat = child_boat -2;
-				child_1 = child_1 -2;
-				total_1 = total_1 -2;
-				pthread_cond_signal(&boatArrive);
-				pthread_cond_signal(&waitAt1);
-			} else { //there is only 1 child but no sure how many adults
-				if (adult_0 == 0) { //if only one Child at Oahu 
-				printf("Child getting into boat\n");
-				fflush(stdout);
-				child_0--;
-				total_0--;
-				child_boat++;
-				printf("Child start to rowing boat from Oahu to Molokai\n");
-				fflush(stdout);
-				printf("Child getting off boat and arrive on Molokai\n");
-				fflush(stdout);
-				child_boat--;
-				child_1++;
-				total_1++;
-				pthread_cond_signal(&boatArrive);
-				pthread_cond_signal(&waitAt1);
-				} else { //if there are adults
-					pthread_cond_signal(&adultGo);
-				}
-			}	
+		if (child_0 == 1) {
+			//we can only boat children if there are two of them, but otherwise, then an adult should go
+			pthread_cond_signal(&adult0);
 		}
-	}	
-	pthread_mutex_unlock(&lock);
+
+		while (child_Waitboat >=2 || boatAt0 == 0) {
+			//there are enough children to boat over to B
+			//let the old child(child on the island earlier) go first 
+			pthread_cond_wait(&cWaitAt0, &lock0);
+		}
+
+		if (child_Waitboat == 0) {
+			child_Waitboat++;
+			//wake up someone to boat with
+			pthread_cond_signal(&cWaitAt0);
+			//wait for child to go across with
+			pthread_cond_wait(&cWaitToBow0, &lock0);
+			printf("One child is now rowing from Oahu to Molokai\n");
+			//arrived, go to sleep
+			pthread_cond_signal(&cWaitToBow0);
+		} else { //there is already someone ready to bow
+			child_Waitboat++;
+			pthread_cond_signal(&cWaitToBow0); //get one more to go
+			printf("One child is now rowing from Oahu to Molokai\n");
+			pthread_cond_signal(&cWaitToBow0); //arrived, go to sleep
+		}
+
+		//finally left Oahu
+		child_Waitboat--;
+		child_0--;
+		boatAt0 = 0;
+		//bye Oahu
+		pthread_mutex_unlock(&lock0);
+		//Get to Molokai
+		pthread_mutex_lock(&lock1);
+		child_1++;
+		childOffBoat++;
+		printf("One child has got out of the boat and arrived at Molokai!!! Oh Yeah\n");
+
+		if (childOffBoat == 1) {
+			//only one child from the 2 sleeps
+			pthread_cond_wait(&cWaitAt1, &lock1);
+		}
+
+		child_1--; //always one child has to go back to A 
+		childOffBoat = 0;
+		pthread_mutex_unlock(&lock1);
+		printf("One child is now rowing from Molokai to Oahu\n");
+		pthread_mutex_lock(&lock0);
+		child_0++;
+		boatAt0 = 1;
+		pthread_mutex_unlock(&lock0);
+	}
+	
+	//check if anyone on Oahu anymore
+	pthread_mutex_lock(&lock0);
+	child_0--;
+	pthread_mutex_unlock(&lock0);
+	printf("One child is now rowing from Oahu to Molokai\n");
+	pthread_mutex_lock(&lock1);
+	child_1++;
+	pthread_mutex_unlock(&lock1);
+
+	printf("Children A/B: %d / %d\n", child_0, child_1);
+	printf("Adults A/B: %d / %d\n", adult_0, adult_1);
+	sem_post(finish_sem);
 }
 
 
 void* adult (void* args) {
 	printf("One Adult has showed up at Oahu\n");
+	adult_0++;
 	fflush(stdout);
-	int adultLoc = 0;
-	pthread_mutex_lock(&lock);
-
-	if (adultLoc == 0) {
-		
-		pthread_cond_wait(&adultGo, &lock);
-		printf("Adult getting into boat\n");
-		fflush(stdout);
-		adult_0--;
-		total_0--;
-		adult_boat++;
-		printf("Adult start to rowing boat from Oahu to Molokai\n");
-		fflush(stdout);
-		printf("Adult getting off boat and arrive on Molokai\n");
-		fflush(stdout);
-		adult_boat--;
-		adult_1++;
-		total_1++;
-		pthread_cond_signal(&boatArrive);
-		pthread_cond_signal(&waitAt1);
+	pthread_mutex_lock(&lock0);
+	while(child_0 >1 || boatAt0 == 0) {
+		//if there is more than one child, then the children should go first, so go to sleep
+		pthread_cond_wait(&adult0, &lock0);
 	}
-	pthread_mutex_unlock(&lock);
+	//otherwise adults can go now
+	adult_0--;
+	printf("One Adult is now rowing from Oahu to Molokai\n");
+	boatAt0 = 0;
+	pthread_mutex_unlock(&lock0);
+	pthread_mutex_lock(&lock1);
+	adult_1++;
+	printf("One Adult has got out of the boat and arrived at Molokai!!! Oh Yeah\n");
+	pthread_cond_signal(&cWaitAt1);
+	pthread_mutex_unlock(&lock1);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
