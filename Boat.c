@@ -42,8 +42,7 @@ int main(int argc, char *argv[]) {
     {
         printf( "2 arguments are needed as input for the number of audlts and children" );
     	fflush(stdout);
-    } else 
-    {
+    } else {
         adultsPthread = atoi(argv[1]);
         childrenPthread = atoi(argv[2]);
         pthread_t adultsP[adultsPthread];
@@ -61,17 +60,17 @@ int main(int argc, char *argv[]) {
 	      //pthread_join(childrenP[c], NULL);
 		}
 
-		// for( int a = 1; a <= adultsPthread; a = a + 1 ){
-	 //      // pthread_t adultsP[a];
-	 //      // pthread_create(&adultsP[a], NULL, adult, NULL);
-	 //      pthread_join(adultsP[a], NULL);
-		// }
+		for( int a = 1; a <= adultsPthread; a = a + 1 ){
+	      // pthread_t adultsP[a];
+	      // pthread_create(&adultsP[a], NULL, adult, NULL);
+	      pthread_join(adultsP[a], NULL);
+		}
 
-		// for( int c = 1; c <= childrenPthread; c = c + 1 ){
-	 //      // pthread_t childrenP[c];
-	 //      // pthread_create(&childrenP[c], NULL, children, NULL);
-	 //      pthread_join(childrenP[c], NULL);
-		// }
+		for( int c = 1; c <= childrenPthread; c = c + 1 ){
+	      // pthread_t childrenP[c];
+	      // pthread_create(&childrenP[c], NULL, children, NULL);
+	      pthread_join(childrenP[c], NULL);
+		}
 
 	}
 
@@ -94,7 +93,6 @@ void closeSync() {
   	pthread_cond_destroy(&waitAt0);
   	pthread_cond_destroy(&boatFull);
   	pthread_cond_destroy(&boatArrive);
-  	pthread_exit (NULL);
 }
 
 void* children (void* args) {
@@ -103,10 +101,10 @@ void* children (void* args) {
 	child_0 ++;
 	total_0 ++;
 	int childLoc = 0; //intial location of the child
+	pthread_mutex_lock(&lock);
+
 	while(1) {
-		if (childLoc == 0)
-		{
-			pthread_mutex_lock(&lock);
+		if (childLoc == 0) {	
 			if (child_0 != 1) { //if there is more than 1 child
 				printf("Child getting into boat\n");
 				fflush(stdout);
@@ -143,13 +141,10 @@ void* children (void* args) {
 				} else { //if there are adults
 					pthread_cond_signal(&adultGo);
 				}
-
-			}
-
-			pthread_mutex_unlock(&lock);
+			}	
 		}
 	}	
-
+	pthread_mutex_unlock(&lock);
 }
 
 
@@ -157,9 +152,10 @@ void* adult (void* args) {
 	printf("One Adult has showed up at Oahu\n");
 	fflush(stdout);
 	int adultLoc = 0;
+	pthread_mutex_lock(&lock);
 
 	if (adultLoc == 0) {
-		pthread_mutex_lock(&lock);
+		
 		pthread_cond_wait(&adultGo, &lock);
 		printf("Adult getting into boat\n");
 		fflush(stdout);
@@ -175,9 +171,8 @@ void* adult (void* args) {
 		total_1++;
 		pthread_cond_signal(&boatArrive);
 		pthread_cond_signal(&waitAt1);
-		pthread_mutex_unlock(&lock);
 	}
-
+	pthread_mutex_unlock(&lock);
 }
 
 
