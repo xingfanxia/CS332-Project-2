@@ -208,7 +208,7 @@ void* children (void* args) {
 			pthread_cond_signal(&cWaitAt0);
 			//wait for child to go across with
 			pthread_cond_wait(&cWaitToBow0, &lock0);
-			printf("One child is now rowing from Oahu to Molokai\n");
+			
 			//arrived, go to sleep
 			pthread_cond_signal(&cWaitToBow0);
 		} else { //there is already someone ready to bow
