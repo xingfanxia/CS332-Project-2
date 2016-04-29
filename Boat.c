@@ -1,3 +1,5 @@
+// @Authors: Aman Panda and Xingfan Xia
+
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -233,7 +235,7 @@ void* children (void* args) {
 		pthread_mutex_lock(&lock1);
 		child_1++;
 		childOffBoat++;
-		printf("One child has got out of the boat and arrived at Molokai!!! Oh Yeah\n");
+		printf("One child has got out of the boat and arrived at Molokai!!!\n");
 
 		if (childOffBoat == 1) {
 			//only one child from the 2 sleeps
@@ -290,7 +292,7 @@ void* adult (void* args) {
 	printf("One Adult is now rowing from Oahu to Molokai\n");
 	pthread_mutex_lock(&lock1);
 	adult_1++;
-	printf("One Adult has got out of the boat and arrived at Molokai!!! Oh Yeah\n");
+	printf("One Adult has got out of the boat and arrived at Molokai!!!\n");
 	//adults got there
 	pthread_cond_signal(&cWaitAt1); //hey children that waiting here
 	pthread_mutex_unlock(&lock1); //done with molokai
