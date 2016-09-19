@@ -256,8 +256,6 @@ void* children (void* args) {
 	
 	
 	// pthread_cond_signal(&stopRowingback); Don't row back
-
-	
 	pthread_mutex_lock(&lock0);
 	child_0--;
 	pthread_mutex_unlock(&lock0);
